@@ -1,0 +1,100 @@
+name: Advanced Test Suite
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-tests:
+    name: Laravel Tests
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: laravel_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, ctype, fileinfo, openssl, PDO, mysql, pdo_mysql, gd, exif
+          coverage: xdebug
+          ini-values: memory_limit=2G
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env.test
+          php artisan key:generate --env=test
+          php artisan config:clear
+
+      - name: Run PHPUnit Tests
+        run: php artisan test --env=test
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: laravel_test
+          DB_USERNAME: root
+          DB_PASSWORD: password
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+
+  frontend-tests:
+    name: Angular Tests
+    runs-on: ubuntu-latest
+    needs: backend-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run Unit Tests
+        working-directory: frontend
+        run: npm test -- --watch=false --browsers=ChromeHeadless
+
+      - name: Run Linter
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build Production
+        working-directory: frontend
+        run: npm run build -- --configuration production
+
+  docker-tests:
+    name: Docker Validation
+    runs-on: ubuntu-latest
+    needs: frontend-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Docker Compose
+        run: docker-compose -f docker/docker-compose.test.yml config
+
+      - name: Build Test Containers
+        run: docker-compose -f docker/docker-compose.test.yml build
+
+      - name: Run Integration Tests
+        run: |
+          docker-compose -f docker/docker-compose.test.yml up -d
+          docker-compose -f docker/docker-compose.test.yml exec php php artisan test

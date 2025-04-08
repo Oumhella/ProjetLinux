@@ -1,0 +1,151 @@
+name: CI/CD Pipeline for Laravel & Angular
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  DOCKER_HUB_REPO: votredockerhub/utilisateur
+  LARAVEL_APP_PORT: 8000
+  ANGULAR_APP_PORT: 4200
+
+jobs:
+  setup-environment:
+    name: Validate environment setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Verify Docker files
+        run: |
+          ls -la docker/nginx/Dockerfile
+          ls -la docker/php/Dockerfile
+          ls -la docker/angular/Dockerfile
+          ls -la docker-compose.yml
+
+  test-backend:
+    needs: setup-environment
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: laravel
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, ctype, fileinfo, openssl, PDO, mysql, pdo_mysql, gd, exif
+          coverage: none
+      
+      - name: Install Composer dependencies
+        run: |
+          cd backend
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+      
+      - name: Prepare Laravel environment
+        run: |
+          cd backend
+          cp .env.example .env
+          php artisan key:generate
+          php artisan config:clear
+      
+      - name: Run PHPUnit tests
+        run: |
+          cd backend
+          php artisan test
+
+  test-frontend:
+    needs: setup-environment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install npm dependencies
+        run: |
+          cd frontend
+          npm install
+      
+      - name: Run Angular tests
+        run: |
+          cd frontend
+          npm run test -- --watch=false --browsers=ChromeHeadless
+
+  build-and-push:
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      
+      - name: Build and push PHP image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: docker/php/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_HUB_REPO }}:php-latest
+            ${{ env.DOCKER_HUB_REPO }}:php-${{ github.sha }}
+      
+      - name: Build and push Nginx image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: docker/nginx/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_HUB_REPO }}:nginx-latest
+            ${{ env.DOCKER_HUB_REPO }}:nginx-${{ github.sha }}
+      
+      - name: Build and push Angular image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: docker/angular/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_HUB_REPO }}:angular-latest
+            ${{ env.DOCKER_HUB_REPO }}:angular-${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: SSH and deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /opt/project
+            docker-compose down
+            docker-compose pull
+            docker-compose up -d --build
+            docker exec -it laravel-app php artisan migrate --force
+            docker exec -it laravel-app php artisan storage:link
