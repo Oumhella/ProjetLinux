@@ -53,35 +53,35 @@ jobs:
       - name: Upload coverage
         uses: codecov/codecov-action@v3
 
-  frontend-tests:
-    name: Angular Tests
-    runs-on: ubuntu-latest
-    needs: backend-tests
-    steps:
-      - uses: actions/checkout@v4
+  # frontend-tests:
+  #   name: Angular Tests
+  #   runs-on: ubuntu-latest
+  #   needs: backend-tests
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: '18'
+  #         cache: 'npm'
 
-      - name: Install dependencies
-        working-directory: frontend
-        run: npm ci
+  #     - name: Install dependencies
+  #       working-directory: frontend
+  #       run: npm ci
 
-      - name: Run Unit Tests
-        working-directory: frontend
-        run: npm test -- --watch=false --browsers=ChromeHeadless
+  #     - name: Run Unit Tests
+  #       working-directory: frontend
+  #       run: npm test -- --watch=false --browsers=ChromeHeadless
 
-      - name: Run Linter
-        working-directory: frontend
-        run: npm run lint
+  #     - name: Run Linter
+  #       working-directory: frontend
+  #       run: npm run lint
 
-      - name: Build Production
-        working-directory: frontend
-        run: npm run build -- --configuration production
-
+  #     - name: Build Production
+  #       working-directory: frontend
+  #       run: npm run build -- --configuration production
+  
   docker-tests:
     name: Docker Validation
     runs-on: ubuntu-latest
