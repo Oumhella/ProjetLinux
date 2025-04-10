@@ -1,15 +1,13 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: amineelbiyadi/laravellinuxv1:latest
     container_name: laravel_app
     restart: always
-    working_dir: /var/www
+    working_dir: /var/www  
     volumes:
-      - .:/var/www
+      - .:/var/www 
     networks:
-      - laravel
+      - laravel 
 
   nginx:
     image: nginx:latest
@@ -33,7 +31,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: projetlinux
       MYSQL_USER: root
-      MYSQL_PASSWORD:
+      MYSQL_PASSWORD: root
     ports:
       - "3306:3306"
     networks:
