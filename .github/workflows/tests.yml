@@ -85,7 +85,7 @@ jobs:
   docker-tests:
     name: Docker Validation
     runs-on: ubuntu-latest
-    needs: frontend-tests
+    # needs: frontend-tests
     steps:
       - uses: actions/checkout@v4
 
