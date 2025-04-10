@@ -20,9 +20,7 @@ jobs:
       
       - name: Verify Docker files
         run: |
-          ls -la docker/nginx/Dockerfile
-          ls -la docker/php/Dockerfile
-          ls -la docker/angular/Dockerfile
+          ls -la Dockerfile
           ls -la docker-compose.yml
 
   test-backend:
@@ -104,31 +102,14 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: docker/php/Dockerfile
+          file: Dockerfile
           push: true
           tags: |
             ${{ env.DOCKER_HUB_REPO }}:php-latest
             ${{ env.DOCKER_HUB_REPO }}:php-${{ github.sha }}
+ 
       
-      - name: Build and push Nginx image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: docker/nginx/Dockerfile
-          push: true
-          tags: |
-            ${{ env.DOCKER_HUB_REPO }}:nginx-latest
-            ${{ env.DOCKER_HUB_REPO }}:nginx-${{ github.sha }}
-      
-      - name: Build and push Angular image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: docker/angular/Dockerfile
-          push: true
-          tags: |
-            ${{ env.DOCKER_HUB_REPO }}:angular-latest
-            ${{ env.DOCKER_HUB_REPO }}:angular-${{ github.sha }}
+
 
   deploy:
     needs: build-and-push
