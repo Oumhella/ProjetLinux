@@ -16,11 +16,11 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 # Copy Laravel application files
 COPY . .
 
-# Install Laravel dependencies
-RUN composer install --no-dev --optimize-autoloader
-
 # Set permissions
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+
+# Install Laravel dependencie
+RUN composer install --no-dev --optimize-autoloader
 
 # Expose port 9000 for PHP-FPM
 EXPOSE 9000
