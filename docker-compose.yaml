@@ -6,7 +6,13 @@ services:
     working_dir: /var/www
     volumes:
       - .:/var/www
-    command: bash -c "composer install && php artisan migrate --force && php-fpm"
+    command: >
+      bash -c "
+        chown -R www-data:www-data storage bootstrap/cache &&
+        chmod -R 775 storage bootstrap/cache &&
+        composer install &&
+        php artisan migrate --force &&
+        php-fpm"
     networks:
       - laravel
 
@@ -15,8 +21,10 @@ services:
     working_dir: /var/www
     volumes:
       - .:/var/www
+    ports:
+      - "5173:5173" 
     command: >
-      sh -c "npm install && npm run dev"
+      sh -c "npm install && npm run dev && tail -f /dev/null"
 
   nginx:
     image: nginx:latest
